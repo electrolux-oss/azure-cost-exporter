@@ -1,0 +1,4 @@
+__pycache__
+secret.yaml
+*.pyc
+.DS_Store
