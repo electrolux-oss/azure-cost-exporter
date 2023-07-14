@@ -78,6 +78,33 @@ class MetricExporter:
         result = azure_client.query.usage(scope, query)
         return result.as_dict()
 
+    def expose_metrics(self, azure_account, result):
+        cost = float(result[0])
+        if not self.group_by["enabled"]:
+            self.azure_cost.labels(
+                **azure_account, ChargeType="ActualCost").set(cost)
+        else:
+            merged_minor_cost = 0
+            group_key_values = dict()
+            for i in range(len(self.group_by["groups"])):
+                value = result[i+2]
+                group_key_values.update(
+                    {self.group_by["groups"][i]["label_name"]: value})
+
+            if self.group_by["merge_minor_cost"]["enabled"] and cost < self.group_by["merge_minor_cost"]["threshold"]:
+                merged_minor_cost += cost
+            else:
+                self.azure_cost.labels(
+                    **azure_account, **group_key_values, ChargeType="ActualCost").set(cost)
+
+            if merged_minor_cost > 0:
+                group_key_values = dict()
+                for i in range(len(self.group_by["groups"])):
+                    group_key_values.update(
+                        {self.group_by["groups"][i]["label_name"]: self.group_by["merge_minor_cost"]["tag_value"]})
+                self.azure_cost.labels(
+                    **azure_account, **group_key_values, ChargeType="ActualCost").set(merged_minor_cost)
+
     def fetch(self):
         for azure_account in self.targets:
             print("querying cost data for Azure tenant %s" %
@@ -99,29 +126,5 @@ class MetricExporter:
                     # for example, the query time period is 2023-07-10 00:00:00+00:00 to 2023-07-11 00:00:00+00:00
                     # Azure still returns some records for date 2023-07-11
                     continue
-
-                cost = float(result[0])
-                if not self.group_by["enabled"]:
-                    self.azure_cost.labels(
-                        **azure_account, ChargeType="ActualCost").set(cost)
                 else:
-                    merged_minor_cost = 0
-                    group_key_values = dict()
-                    for i in range(len(self.group_by["groups"])):
-                        value = result[i+2]
-                        group_key_values.update(
-                            {self.group_by["groups"][i]["label_name"]: value})
-
-                    if self.group_by["merge_minor_cost"]["enabled"] and cost < self.group_by["merge_minor_cost"]["threshold"]:
-                        merged_minor_cost += cost
-                    else:
-                        self.azure_cost.labels(
-                            **azure_account, **group_key_values, ChargeType="ActualCost").set(cost)
-
-                    if merged_minor_cost > 0:
-                        group_key_values = dict()
-                        for i in range(len(self.group_by["groups"])):
-                            group_key_values.update(
-                                {self.group_by["groups"][i]["label_name"]: self.group_by["merge_minor_cost"]["tag_value"]})
-                        self.azure_cost.labels(
-                            **azure_account, **group_key_values, ChargeType="ActualCost").set(merged_minor_cost)
+                    self.expose_metrics(azure_account, result)
