@@ -2,5 +2,5 @@ azure-mgmt-costmanagement==4.0.0
 azure-identity==1.13.0
 prometheus-client==0.17.0
 envyaml==1.10.211231
-pyyaml==6.0
+pyyaml==6.0.1
 python-dateutil==2.8.2
