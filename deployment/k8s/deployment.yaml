@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/name: azure-cost-exporter
     app.kubernetes.io/part-of: finops
     app.kubernetes.io/component: backend
-    app.kubernetes.io/version: "v1.0.0"
+    app.kubernetes.io/version: "v1.0.1"
     app.kubernetes.io/language: python
 spec:
   replicas: 1
@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: azure-cost-exporter
-          image: "opensourceelectrolux/azure-cost-exporter:v1.0.0"
+          image: "opensourceelectrolux/azure-cost-exporter:v1.0.1"
           command: [ "python", "main.py", "-c", "/exporter_config.yaml", "-s", "/secret.yaml" ]
           imagePullPolicy: Always
           ports:

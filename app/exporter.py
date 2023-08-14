@@ -26,8 +26,8 @@ class MetricExporter:
         if group_by["enabled"]:
             for group in group_by["groups"]:
                 self.labels.add(group["label_name"])
-        self.azure_cost = Gauge(
-            "azure_cost", "Daily cost of an Azure account", self.labels)
+        self.azure_daily_cost_usd = Gauge(
+            "azure_daily_cost_usd", "Daily cost of an Azure account in USD", self.labels)
 
     def run_metrics_loop(self):
         while True:
@@ -81,7 +81,7 @@ class MetricExporter:
     def expose_metrics(self, azure_account, result):
         cost = float(result[0])
         if not self.group_by["enabled"]:
-            self.azure_cost.labels(
+            self.azure_daily_cost_usd.labels(
                 **azure_account, ChargeType="ActualCost").set(cost)
         else:
             merged_minor_cost = 0
@@ -94,7 +94,7 @@ class MetricExporter:
             if self.group_by["merge_minor_cost"]["enabled"] and cost < self.group_by["merge_minor_cost"]["threshold"]:
                 merged_minor_cost += cost
             else:
-                self.azure_cost.labels(
+                self.azure_daily_cost_usd.labels(
                     **azure_account, **group_key_values, ChargeType="ActualCost").set(cost)
 
             if merged_minor_cost > 0:
@@ -102,7 +102,7 @@ class MetricExporter:
                 for i in range(len(self.group_by["groups"])):
                     group_key_values.update(
                         {self.group_by["groups"][i]["label_name"]: self.group_by["merge_minor_cost"]["tag_value"]})
-                self.azure_cost.labels(
+                self.azure_daily_cost_usd.labels(
                     **azure_account, **group_key_values, ChargeType="ActualCost").set(merged_minor_cost)
 
     def fetch(self):
