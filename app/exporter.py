@@ -34,13 +34,17 @@ class MetricExporter:
             self.fetch()
             time.sleep(self.polling_interval_seconds)
 
-    def init_azure_client(self, tenant_id):
+    def init_azure_client(self, tenant_id, subscription_id):
+        credentials = next((sub for sub in self.secrets[tenant_id] if sub["SubscriptionId"] == subscription_id), None)
+        if credentials is None:
+            raise ValueError("Credentials for subscription %s not found" % subscription_id)
+    
         client = CostManagementClient(credential=ClientSecretCredential(
             tenant_id=tenant_id,
-            client_id=self.secrets[tenant_id]["client_id"],
-            client_secret=self.secrets[tenant_id]["client_secret"]
+            client_id=credentials["client_id"],
+            client_secret=credentials["client_secret"]
         ))
-
+    
         return client
 
     def query_azure_cost_explorer(self, azure_client, subscription, group_by, start_date, end_date):
@@ -107,24 +111,27 @@ class MetricExporter:
 
     def fetch(self):
         for azure_account in self.targets:
-            print("querying cost data for Azure tenant %s" %
-                  azure_account["TenantId"])
-            azure_client = self.init_azure_client(azure_account["TenantId"])
-
-            try:
-                end_date = datetime.today()
-                start_date = end_date - relativedelta(days=1)
-                cost_response = self.query_azure_cost_explorer(
-                    azure_client, azure_account["Subscription"], self.group_by, start_date, end_date)
-            except HttpResponseError as e:
-                logging.error(e.reason)
-                continue
-
-            for result in cost_response["rows"]:
-                if result[1] != int(start_date.strftime("%Y%m%d")):
-                    # it is possible that Azure returns cost data which is different than the specified date
-                    # for example, the query time period is 2023-07-10 00:00:00+00:00 to 2023-07-11 00:00:00+00:00
-                    # Azure still returns some records for date 2023-07-11
+            tenant_id = azure_account["TenantId"]
+            print("Querying cost data for Azure tenant %s" % tenant_id)
+    
+            # Iterate through each subscription in the tenant
+            for sub in self.secrets[tenant_id]:
+                subscription_id = sub["SubscriptionId"]
+                print("Processing subscription %s" % subscription_id)
+                azure_client = self.init_azure_client(tenant_id, subscription_id)
+    
+                try:
+                    end_date = datetime.today()
+                    start_date = end_date - relativedelta(days=1)
+                    cost_response = self.query_azure_cost_explorer(
+                        azure_client, subscription_id, self.group_by, start_date, end_date)
+    
+                    # Process the response for each row
+                    for result in cost_response["rows"]:
+                        if result[1] != int(start_date.strftime("%Y%m%d")):
+                            continue
+                        self.expose_metrics(azure_account, result)
+    
+                except HttpResponseError as e:
+                    logging.error("Error querying Azure for subscription %s: %s" % (subscription_id, e.reason))
                     continue
-                else:
-                    self.expose_metrics(azure_account, result)
