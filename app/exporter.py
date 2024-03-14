@@ -31,6 +31,9 @@ class MetricExporter:
 
     def run_metrics_loop(self):
         while True:
+            # every time we clear up all the existing labels before setting new ones
+            self.azure_daily_cost_usd.clear()
+
             self.fetch()
             time.sleep(self.polling_interval_seconds)
 
@@ -70,9 +73,6 @@ class MetricExporter:
         return result.as_dict()
 
     def expose_metrics(self, azure_account, result):
-        # every time we clear up all the existing labels before setting new ones
-        self.azure_daily_cost_usd.clear()
-
         cost = float(result[0])
         if not self.group_by["enabled"]:
             self.azure_daily_cost_usd.labels(**azure_account, ChargeType="ActualCost").set(cost)
