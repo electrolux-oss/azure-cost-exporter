@@ -15,8 +15,9 @@ from prometheus_client import Gauge
 
 
 class MetricExporter:
-    def __init__(self, polling_interval_seconds, group_by, targets, secrets):
+    def __init__(self, polling_interval_seconds, metric_name, group_by, targets, secrets):
         self.polling_interval_seconds = polling_interval_seconds
+        self.metric_name = metric_name
         self.group_by = group_by
         self.targets = targets
         self.secrets = secrets
@@ -27,7 +28,7 @@ class MetricExporter:
         if group_by["enabled"]:
             for group in group_by["groups"]:
                 self.labels.add(group["label_name"])
-        self.azure_daily_cost_usd = Gauge("azure_daily_cost_usd", "Daily cost of an Azure account in USD", self.labels)
+        self.azure_daily_cost_usd = Gauge(self.metric_name, "Daily cost of an Azure account in USD", self.labels)
 
     def run_metrics_loop(self):
         while True:
