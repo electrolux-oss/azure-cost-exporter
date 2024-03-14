@@ -2,15 +2,16 @@
 # -*- coding:utf-8 -*-
 # Filename: exporter.py
 
+import logging
 import time
 from datetime import datetime, timezone
-from dateutil.relativedelta import relativedelta
-from prometheus_client import Gauge
+
+from azure.core.exceptions import HttpResponseError
 from azure.identity import ClientSecretCredential
 from azure.mgmt.costmanagement import CostManagementClient
 from azure.mgmt.costmanagement.models import QueryDefinition, QueryTimePeriod
-from azure.core.exceptions import HttpResponseError
-import logging
+from dateutil.relativedelta import relativedelta
+from prometheus_client import Gauge
 
 
 class MetricExporter:
@@ -26,8 +27,7 @@ class MetricExporter:
         if group_by["enabled"]:
             for group in group_by["groups"]:
                 self.labels.add(group["label_name"])
-        self.azure_daily_cost_usd = Gauge(
-            "azure_daily_cost_usd", "Daily cost of an Azure account in USD", self.labels)
+        self.azure_daily_cost_usd = Gauge("azure_daily_cost_usd", "Daily cost of an Azure account in USD", self.labels)
 
     def run_metrics_loop(self):
         while True:
@@ -35,11 +35,13 @@ class MetricExporter:
             time.sleep(self.polling_interval_seconds)
 
     def init_azure_client(self, tenant_id):
-        client = CostManagementClient(credential=ClientSecretCredential(
-            tenant_id=tenant_id,
-            client_id=self.secrets[tenant_id]["client_id"],
-            client_secret=self.secrets[tenant_id]["client_secret"]
-        ))
+        client = CostManagementClient(
+            credential=ClientSecretCredential(
+                tenant_id=tenant_id,
+                client_id=self.secrets[tenant_id]["client_id"],
+                client_secret=self.secrets[tenant_id]["client_secret"],
+            )
+        )
 
         return client
 
@@ -49,73 +51,64 @@ class MetricExporter:
         groups = list()
         if group_by["enabled"]:
             for group in group_by["groups"]:
-                groups.append({
-                    "type": group["type"],
-                    "name": group["name"]
-                })
+                groups.append({"type": group["type"], "name": group["name"]})
 
         query = QueryDefinition(
             type="ActualCost",
             dataset={
                 "granularity": "Daily",
-                "aggregation": {
-                    "totalCostUSD":
-                    {
-                        "name": "CostUSD",
-                        "function": "Sum"
-                    }
-                },
-                "grouping": groups
+                "aggregation": {"totalCostUSD": {"name": "CostUSD", "function": "Sum"}},
+                "grouping": groups,
             },
             timeframe="Custom",
             time_period=QueryTimePeriod(
-                from_property=datetime(
-                    start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc),
-                to=datetime(end_date.year, end_date.month,
-                            end_date.day, tzinfo=timezone.utc)
-            )
+                from_property=datetime(start_date.year, start_date.month, start_date.day, tzinfo=timezone.utc),
+                to=datetime(end_date.year, end_date.month, end_date.day, tzinfo=timezone.utc),
+            ),
         )
         result = azure_client.query.usage(scope, query)
         return result.as_dict()
 
     def expose_metrics(self, azure_account, result):
+        # every time we clear up all the existing labels before setting new ones
+        self.azure_daily_cost_usd.clear()
+
         cost = float(result[0])
         if not self.group_by["enabled"]:
-            self.azure_daily_cost_usd.labels(
-                **azure_account, ChargeType="ActualCost").set(cost)
+            self.azure_daily_cost_usd.labels(**azure_account, ChargeType="ActualCost").set(cost)
         else:
             merged_minor_cost = 0
             group_key_values = dict()
             for i in range(len(self.group_by["groups"])):
-                value = result[i+2]
-                group_key_values.update(
-                    {self.group_by["groups"][i]["label_name"]: value})
+                value = result[i + 2]
+                group_key_values.update({self.group_by["groups"][i]["label_name"]: value})
 
             if self.group_by["merge_minor_cost"]["enabled"] and cost < self.group_by["merge_minor_cost"]["threshold"]:
                 merged_minor_cost += cost
             else:
-                self.azure_daily_cost_usd.labels(
-                    **azure_account, **group_key_values, ChargeType="ActualCost").set(cost)
+                self.azure_daily_cost_usd.labels(**azure_account, **group_key_values, ChargeType="ActualCost").set(cost)
 
             if merged_minor_cost > 0:
                 group_key_values = dict()
                 for i in range(len(self.group_by["groups"])):
                     group_key_values.update(
-                        {self.group_by["groups"][i]["label_name"]: self.group_by["merge_minor_cost"]["tag_value"]})
-                self.azure_daily_cost_usd.labels(
-                    **azure_account, **group_key_values, ChargeType="ActualCost").set(merged_minor_cost)
+                        {self.group_by["groups"][i]["label_name"]: self.group_by["merge_minor_cost"]["tag_value"]}
+                    )
+                self.azure_daily_cost_usd.labels(**azure_account, **group_key_values, ChargeType="ActualCost").set(
+                    merged_minor_cost
+                )
 
     def fetch(self):
         for azure_account in self.targets:
-            print("querying cost data for Azure tenant %s" %
-                  azure_account["TenantId"])
+            print("querying cost data for Azure tenant %s" % azure_account["TenantId"])
             azure_client = self.init_azure_client(azure_account["TenantId"])
 
             try:
                 end_date = datetime.today()
                 start_date = end_date - relativedelta(days=1)
                 cost_response = self.query_azure_cost_explorer(
-                    azure_client, azure_account["Subscription"], self.group_by, start_date, end_date)
+                    azure_client, azure_account["Subscription"], self.group_by, start_date, end_date
+                )
             except HttpResponseError as e:
                 logging.error(e.reason)
                 continue
