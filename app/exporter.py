@@ -117,7 +117,7 @@ class MetricExporter:
 
     def fetch(self):
         for azure_account in self.targets:
-            print("querying cost data for Azure tenant %s" % azure_account["TenantId"])
+            print("[%s] Querying cost data for Azure tenant %s" % (datetime.now(), azure_account["TenantId"]))
             azure_client = self.init_azure_client(azure_account["TenantId"])
 
             try:
