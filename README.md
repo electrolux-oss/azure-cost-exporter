@@ -7,17 +7,17 @@ On Azure we usually use the Cost Management portal to analyze costs, which is a 
 ```
 # HELP azure_daily_cost Daily cost of an Azure account in billing currency
 # TYPE azure_daily_cost gauge
-azure_daily_cost{ChargeType="ActualCost",EnvironmentName="prod",ProjectName="myproject",ServiceName="Virtual Network",Subscription="<subscription_id_1>",TenantId="<tenant_id_1>"} 0.439500230497108
-azure_daily_cost{ChargeType="ActualCost",EnvironmentName="prod",ProjectName="myproject",ServiceName="VPN Gateway",Subscription="<subscription_id_1>",TenantId="<tenant_id_1>"} 4.191000368311904
-azure_daily_cost{ChargeType="ActualCost",EnvironmentName="dev",ProjectName="myproject",ServiceName="Azure Container Apps",Subscription="<subscription_id_2>",TenantId="<tenant_id_2>"} 0.371846875438938
-azure_daily_cost{ChargeType="ActualCost",EnvironmentName="dev",ProjectName="myproject",ServiceName="Service Bus",Subscription="<subscription_id_2>",TenantId="<tenant_id_2>"} 13.99512952148999
+azure_daily_cost{ChargeType="ActualCost",Currency="<the billing currency such as EUR>"EnvironmentName="prod",ProjectName="myproject",ServiceName="Virtual Network",Subscription="<subscription_id_1>",TenantId="<tenant_id_1>"} 0.439500230497108
+azure_daily_cost{ChargeType="ActualCost",Currency="<the billing currency such as EUR>"EnvironmentName="prod",ProjectName="myproject",ServiceName="VPN Gateway",Subscription="<subscription_id_1>",TenantId="<tenant_id_1>"} 4.191000368311904
+azure_daily_cost{ChargeType="ActualCost",Currency="<the billing currency such as EUR>"EnvironmentName="dev",ProjectName="myproject",ServiceName="Azure Container Apps",Subscription="<subscription_id_2>",TenantId="<tenant_id_2>"} 0.371846875438938
+azure_daily_cost{ChargeType="ActualCost",Currency="<the billing currency such as EUR>"EnvironmentName="dev",ProjectName="myproject",ServiceName="Service Bus",Subscription="<subscription_id_2>",TenantId="<tenant_id_2>"} 13.99512952148999
 
 # HELP azure_daily_cost_usd Daily cost of an Azure account in USD
 # TYPE azure_daily_cost_usd gauge
-azure_daily_cost_usd{ChargeType="ActualCost",EnvironmentName="prod",ProjectName="myproject",ServiceName="Virtual Network",Subscription="<subscription_id_1>",TenantId="<tenant_id_1>"} 0.439500230497108
-azure_daily_cost_usd{ChargeType="ActualCost",EnvironmentName="prod",ProjectName="myproject",ServiceName="VPN Gateway",Subscription="<subscription_id_1>",TenantId="<tenant_id_1>"} 4.191000368311904
-azure_daily_cost_usd{ChargeType="ActualCost",EnvironmentName="dev",ProjectName="myproject",ServiceName="Azure Container Apps",Subscription="<subscription_id_2>",TenantId="<tenant_id_2>"} 0.371846875438938
-azure_daily_cost_usd{ChargeType="ActualCost",EnvironmentName="dev",ProjectName="myproject",ServiceName="Service Bus",Subscription="<subscription_id_2>",TenantId="<tenant_id_2>"} 13.99512952148999
+azure_daily_cost_usd{ChargeType="ActualCost",Currency="USD",EnvironmentName="prod",ProjectName="myproject",ServiceName="Virtual Network",Subscription="<subscription_id_1>",TenantId="<tenant_id_1>"} 0.439500230497108
+azure_daily_cost_usd{ChargeType="ActualCost",Currency="USD",EnvironmentName="prod",ProjectName="myproject",ServiceName="VPN Gateway",Subscription="<subscription_id_1>",TenantId="<tenant_id_1>"} 4.191000368311904
+azure_daily_cost_usd{ChargeType="ActualCost",Currency="USD",EnvironmentName="dev",ProjectName="myproject",ServiceName="Azure Container Apps",Subscription="<subscription_id_2>",TenantId="<tenant_id_2>"} 0.371846875438938
+azure_daily_cost_usd{ChargeType="ActualCost",Currency="USD",EnvironmentName="dev",ProjectName="myproject",ServiceName="Service Bus",Subscription="<subscription_id_2>",TenantId="<tenant_id_2>"} 13.99512952148999
 ...
 ```
 

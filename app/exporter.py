@@ -86,7 +86,7 @@ class MetricExporter:
 
         if not self.group_by["enabled"]:
             self.azure_daily_cost.labels(**azure_account, ChargeType="ActualCost", Currency=result[3]).set(cost)
-            self.azure_daily_cost_usd.labels(**azure_account, ChargeType="ActualCost", Currency=result[3]).set(costUsd)
+            self.azure_daily_cost_usd.labels(**azure_account, ChargeType="ActualCost", Currency="USD").set(costUsd)
         else:
             merged_minor_cost = 0
             merged_minor_cost_usd = 0
@@ -99,8 +99,8 @@ class MetricExporter:
                 merged_minor_cost += cost
                 merged_minor_cost_usd += costUsd
             else:
-                self.azure_daily_cost.labels(**azure_account, **group_key_values, ChargeType="ActualCost", Currency=result[3]).set(cost)
-                self.azure_daily_cost_usd.labels(**azure_account, **group_key_values, ChargeType="ActualCost", Currency=result[3]).set(costUsd)
+                self.azure_daily_cost.labels(**azure_account, **group_key_values, ChargeType="ActualCost", Currency=result[len(self.group_by["groups"]) + 3]).set(cost)
+                self.azure_daily_cost_usd.labels(**azure_account, **group_key_values, ChargeType="ActualCost", Currency="USD").set(costUsd)
 
             if merged_minor_cost > 0:
                 group_key_values = dict()
