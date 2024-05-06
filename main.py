@@ -95,6 +95,7 @@ def main(config, secrets):
     app_metrics = MetricExporter(
         polling_interval_seconds=config["polling_interval_seconds"],
         metric_name=config["metric_name"],
+        metric_name_usd=config["metric_name_usd"],
         group_by=config["group_by"],
         targets=config["target_azure_accounts"],
         secrets=secrets

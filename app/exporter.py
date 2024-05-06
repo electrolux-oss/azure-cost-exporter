@@ -15,9 +15,10 @@ from prometheus_client import Gauge
 
 
 class MetricExporter:
-    def __init__(self, polling_interval_seconds, metric_name, group_by, targets, secrets):
+    def __init__(self, polling_interval_seconds, metric_name, metric_name_usd, group_by, targets, secrets):
         self.polling_interval_seconds = polling_interval_seconds
         self.metric_name = metric_name
+        self.metric_name_usd = metric_name_usd
         self.group_by = group_by
         self.targets = targets
         self.secrets = secrets
@@ -25,14 +26,17 @@ class MetricExporter:
         self.labels = set(targets[0].keys())
         # for now we only support exporting one type of cost (ActualCost)
         self.labels.add("ChargeType")
+        self.labels.add("Currency")
         if group_by["enabled"]:
             for group in group_by["groups"]:
                 self.labels.add(group["label_name"])
-        self.azure_daily_cost_usd = Gauge(self.metric_name, "Daily cost of an Azure account in USD", self.labels)
+        self.azure_daily_cost = Gauge(self.metric_name, "Daily cost of an Azure account in billing currency", self.labels)
+        self.azure_daily_cost_usd = Gauge(self.metric_name_usd, "Daily cost of an Azure account in USD", self.labels)
 
     def run_metrics_loop(self):
         while True:
             # every time we clear up all the existing labels before setting new ones
+            self.azure_daily_cost.clear()
             self.azure_daily_cost_usd.clear()
 
             self.fetch()
@@ -61,7 +65,10 @@ class MetricExporter:
             type="ActualCost",
             dataset={
                 "granularity": "Daily",
-                "aggregation": {"totalCostUSD": {"name": "CostUSD", "function": "Sum"}},
+                "aggregation": {
+                    "totalCost": {"name": "Cost", "function": "Sum"},
+                    "totalCostUSD": {"name": "CostUSD", "function": "Sum"}
+                },
                 "grouping": groups,
             },
             timeframe="Custom",
@@ -73,21 +80,27 @@ class MetricExporter:
         result = azure_client.query.usage(scope, query)
         return result.as_dict()
 
-    def expose_metrics(self, azure_account, result):
+    def expose_metrics(self, azure_account, result):   
         cost = float(result[0])
+        costUsd = float(result[1])
+
         if not self.group_by["enabled"]:
-            self.azure_daily_cost_usd.labels(**azure_account, ChargeType="ActualCost").set(cost)
+            self.azure_daily_cost.labels(**azure_account, ChargeType="ActualCost", Currency=result[3]).set(cost)
+            self.azure_daily_cost_usd.labels(**azure_account, ChargeType="ActualCost", Currency="USD").set(costUsd)
         else:
             merged_minor_cost = 0
+            merged_minor_cost_usd = 0
             group_key_values = dict()
             for i in range(len(self.group_by["groups"])):
-                value = result[i + 2]
+                value = result[i + 3]
                 group_key_values.update({self.group_by["groups"][i]["label_name"]: value})
 
             if self.group_by["merge_minor_cost"]["enabled"] and cost < self.group_by["merge_minor_cost"]["threshold"]:
                 merged_minor_cost += cost
+                merged_minor_cost_usd += costUsd
             else:
-                self.azure_daily_cost_usd.labels(**azure_account, **group_key_values, ChargeType="ActualCost").set(cost)
+                self.azure_daily_cost.labels(**azure_account, **group_key_values, ChargeType="ActualCost", Currency=result[len(self.group_by["groups"]) + 3]).set(cost)
+                self.azure_daily_cost_usd.labels(**azure_account, **group_key_values, ChargeType="ActualCost", Currency="USD").set(costUsd)
 
             if merged_minor_cost > 0:
                 group_key_values = dict()
@@ -95,13 +108,16 @@ class MetricExporter:
                     group_key_values.update(
                         {self.group_by["groups"][i]["label_name"]: self.group_by["merge_minor_cost"]["tag_value"]}
                     )
-                self.azure_daily_cost_usd.labels(**azure_account, **group_key_values, ChargeType="ActualCost").set(
+                self.azure_daily_cost.labels(**azure_account, **group_key_values, ChargeType="ActualCost").set(
                     merged_minor_cost
+                )
+                self.azure_daily_cost_usd.labels(**azure_account, **group_key_values, ChargeType="ActualCost").set(
+                    merged_minor_cost_usd
                 )
 
     def fetch(self):
         for azure_account in self.targets:
-            print("querying cost data for Azure tenant %s" % azure_account["TenantId"])
+            print("[%s] Querying cost data for Azure tenant %s" % (datetime.now(), azure_account["TenantId"]))
             azure_client = self.init_azure_client(azure_account["TenantId"])
 
             try:
@@ -115,7 +131,7 @@ class MetricExporter:
                 continue
 
             for result in cost_response["rows"]:
-                if result[1] != int(start_date.strftime("%Y%m%d")):
+                if result[2] != int(start_date.strftime("%Y%m%d")):
                     # it is possible that Azure returns cost data which is different than the specified date
                     # for example, the query time period is 2023-07-10 00:00:00+00:00 to 2023-07-11 00:00:00+00:00
                     # Azure still returns some records for date 2023-07-11
