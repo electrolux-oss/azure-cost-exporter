@@ -15,10 +15,11 @@ from prometheus_client import Gauge
 
 
 class MetricExporter:
-    def __init__(self, polling_interval_seconds, metric_name, metric_name_usd, group_by, targets, secrets):
+    def __init__(self, polling_interval_seconds, metric_name, metric_name_usd, client_type, group_by, targets, secrets):
         self.polling_interval_seconds = polling_interval_seconds
         self.metric_name = metric_name
         self.metric_name_usd = metric_name_usd
+        self.client_type = client_type
         self.group_by = group_by
         self.targets = targets
         self.secrets = secrets
@@ -77,10 +78,13 @@ class MetricExporter:
                 to=datetime(end_date.year, end_date.month, end_date.day, tzinfo=timezone.utc),
             ),
         )
-        result = azure_client.query.usage(scope, query)
+        # Cost Management rate-limits the query API per ClientType.
+        result = azure_client.query.usage(
+            scope, query, headers={"ClientType": self.client_type}
+        )
         return result.as_dict()
 
-    def expose_metrics(self, azure_account, result):   
+    def expose_metrics(self, azure_account, result):
         cost = float(result[0])
         costUsd = float(result[1])
 
