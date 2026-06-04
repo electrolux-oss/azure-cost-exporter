@@ -96,6 +96,7 @@ def main(config, secrets):
         polling_interval_seconds=config["polling_interval_seconds"],
         metric_name=config["metric_name"],
         metric_name_usd=config["metric_name_usd"],
+        client_type=config.get("client_type", "AzureCostExporter"),
         group_by=config["group_by"],
         targets=config["target_azure_accounts"],
         secrets=secrets
