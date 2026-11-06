@@ -54,6 +54,10 @@ Here are the steps of creating client credentials.
 
 Modify the `exporter_config.yaml` file first, then run command `python main.py -c exporter_config.yaml` to generate a `secret.yaml` file. Put the credentials (client ID and client secret) of each Azure account into this file and then this use one of the following methods to run the exporter.
 
+#### Running without a client secret (workload identity / managed identity)
+
+If a tenant's entry in `secret.yaml` has no `client_secret` (for example `<tenant-id>: {}`), the exporter authenticates with [`DefaultAzureCredential`](https://learn.microsoft.com/python/api/overview/azure/identity-readme#defaultazurecredential) instead. On AKS this means [workload identity](https://learn.microsoft.com/azure/aks/workload-identity-overview): annotate the ServiceAccount with `azure.workload.identity/client-id`, label the pod `azure.workload.identity/use: "true"`, and give the identity the `Cost Management Reader` role on the subscription — no app registration or secret is needed. The identity must be in the same tenant as the subscription it reads. Tip: set `AZURE_TOKEN_CREDENTIALS=WorkloadIdentityCredential` in the pod to restrict the credential chain to workload identity only.
+
 ### Docker
 
 ```

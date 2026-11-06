@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timezone
 
 from azure.core.exceptions import HttpResponseError
-from azure.identity import ClientSecretCredential
+from azure.identity import ClientSecretCredential, DefaultAzureCredential
 from azure.mgmt.costmanagement import CostManagementClient
 from azure.mgmt.costmanagement.models import QueryDefinition, QueryTimePeriod
 from dateutil.relativedelta import relativedelta
@@ -44,13 +44,20 @@ class MetricExporter:
             time.sleep(self.polling_interval_seconds)
 
     def init_azure_client(self, tenant_id):
-        client = CostManagementClient(
-            credential=ClientSecretCredential(
+        # A tenant entry with a client_secret keeps the classic client-credentials flow.
+        # An empty entry (e.g. `<tenant-id>: {}` in secret.yaml) falls back to
+        # DefaultAzureCredential so the exporter can run on AKS workload identity,
+        # a managed identity, or a developer's `az login` without any static secret.
+        secret = self.secrets[tenant_id] or {}
+        if secret.get("client_secret"):
+            credential = ClientSecretCredential(
                 tenant_id=tenant_id,
-                client_id=self.secrets[tenant_id]["client_id"],
-                client_secret=self.secrets[tenant_id]["client_secret"],
+                client_id=secret["client_id"],
+                client_secret=secret["client_secret"],
             )
-        )
+        else:
+            credential = DefaultAzureCredential()
+        client = CostManagementClient(credential=credential)
 
         return client
 
